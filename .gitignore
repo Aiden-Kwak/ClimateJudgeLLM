@@ -1,3 +1,6 @@
 venv
 .env
 memo.txt
+*.bin
+*.json
+rscFiles/

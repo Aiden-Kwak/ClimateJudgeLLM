@@ -110,16 +110,31 @@ def qa_model(claim: str, model: str = "deepseek-chat"):
     
 ### Jury Agent
 ### Set easy-rag-llm.
-rs = RagService(
-    embedding_model="text-embedding-3-small",
-    response_model="deepseek-chat",
-    open_api_key=openai_api_key,
-    deepseek_api_key=deepseek_api_key,
-    deepseek_base_url=deepseek_base_url,
-)
-
-def jury_agent(questions: list, claim: str):
+def jury_agent(questions: list, original_claim: str):
     print("생성된 세부 질문들이 배심원단에 의해 판단되는 중입니다...")
+    rs = RagService(
+        embedding_model="text-embedding-3-small",
+        response_model="deepseek-chat",
+        open_api_key=openai_api_key,
+        deepseek_api_key=deepseek_api_key,
+        deepseek_base_url=deepseek_base_url,
+    )
+    print("배심원단이 문서에서 근거를 찾는 중입니다...")
+    resource = rs.rsc("./rscFiles", force_update=False, max_workers=15) # 전체 문서 임베딩
+    for question in questions: # 나중에 멀티스레드로 변경
+        jury_prompt = f"""
+        You are a juror tasked with preparing a logical and well-reasoned response to the derived sub-question "{question}" in order to evaluate the original question "{original_claim}".
+        Carefully review the provided materials and base your evaluation and response strictly on the evidence presented.
+        1) All responses and evaluations must be grounded solely in the provided materials.
+        2) Do not reference or rely on any information or evidence not included in the materials.
+        3) Your response will serve as a critical basis for determining the truthfulness of the original question "{original_claim}".
+        """
+        response, evidence = rs.generate_response(resource, question, evidence_num=5)
+        print(f"Question: {question}")
+        print(f"Response: {response}") 
+        print(f"Evidence: {evidence}")
+        print("\n")
+        print("=====================================================")
 
 
 
@@ -132,9 +147,9 @@ if __name__ == "__main__":
     """
     claim = "지구 온난화는 기후 모델이 예측한 만큼 진행되지 않고 있다. 이는 식물의 광합성이 예상보다 더 많은 CO2를 흡수하고 있기 때문이다. 기후 변화는 거짓말이다."
     model = "deepseek-chat"
-    small_questions = qa_model(claim,model)
+    questions = qa_model(claim,model)
 
-    print(small_questions[0])
+    jury_agent(questions, claim)
 
 
 
