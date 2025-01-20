@@ -7,7 +7,7 @@ easy-rag-llm 구현시 임베딩에 ThreadPoolExecutor를 적용했는데 생각
 asyncio를 적용하는 것이 더 적합할 수 있다. v1.1.1에서 선택가능하게 업데이트해두자. 기본을 ThreadPoolExecutor로 둘 것.(
 이건 워커로 조정하면 되는데 asyncio는 스로틀링 리밋 초과시에 세마포어 달아야한다.)
 
-### 배심원단 답변
+### 배심원단 답변 (./jury_results.json 참고)
 
 ```json
 Question: Scientific basis verification: What evidence supports the claim that global warming is not progressing as predicted by climate models?

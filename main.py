@@ -122,6 +122,21 @@ def process_question(rs, resource, question, original_claim):
     response, evidence = rs.generate_response(resource, question, evidence_num=5)
     return question, response, evidence
 
+def generate_document(results, original_claim):
+    document = {
+        "Introduction": f"This document presents the jury's analysis to evaluate the original claim: '{original_claim}'. Below are the detailed responses and evidence for each sub-question.",
+        "Questions": [],
+        "Conclusion": "Based on the above responses and evidence, please provide a logical conclusion regarding the claim."
+    }
+    for question, response, evidence in results:
+        document["Questions"].append({
+            "Question": question,
+            "Response": response,
+            "Evidence": evidence
+        })
+    return json.dumps(document, indent=4, ensure_ascii=False)
+
+
 def jury_agent(questions: list, original_claim: str):
     print("생성된 세부 질문들이 배심원단에 의해 판단되는 중입니다...")
     rs = RagService(
@@ -133,7 +148,8 @@ def jury_agent(questions: list, original_claim: str):
     )
     print("배심원단이 문서에서 근거를 찾는 중입니다...")
     resource = rs.rsc("./rscFiles", force_update=False, max_workers=15)  # 전체 문서 임베딩
-    
+                    
+    results = []
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {
             executor.submit(process_question, rs, resource, question, original_claim): question
@@ -142,13 +158,16 @@ def jury_agent(questions: list, original_claim: str):
         for future in as_completed(futures):
             question = futures[future]
             try:
-                question, response, evidence = future.result()
-                print(f"Question: {question}")
-                print(f"Response: {response}")
-                print(f"Evidence: {evidence}")
-                print("\n=====================================================\n")
+                result = future.result()
+                results.append(result)
+                print(f"Processed Question: {result[0]}")
             except Exception as e:
                 print(f"Error processing question '{question}': {e}")
+
+    document = generate_document(results, original_claim)
+    with open("jury_results.json", "w", encoding="utf-8") as file:
+        file.write(document)
+    print("문서 생성 완료: 'jury_results.json'")
 
 
 
