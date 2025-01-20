@@ -256,6 +256,12 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"배심원단의 답변(jury_results.json)이 생성되지 않았습니다. Error: {e}")
 
+    # 이제 상호작용시켜야돼.
+    # Lawyer Reply Brief 작성
+    
+
+    # Prosecutor Reply Brief 작성
+
 
 
 
