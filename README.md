@@ -1,6 +1,7 @@
 # ClimateJudgeLLM
 
 <img src="img/JuryAgent.png" width="500px">
+<img src="img/Judgement.png" width="500px">
 
 ### 메모.
 easy-rag-llm 구현시 임베딩에 ThreadPoolExecutor를 적용했는데 생각보다 느리다. I/O bound 작업임을 고려할때, 

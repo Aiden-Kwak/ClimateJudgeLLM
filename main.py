@@ -150,14 +150,79 @@ def generate_lawyer_prompt(jury_results: str, original_claim: str):
     """
 
 
-def lawyer_agent(jury_results: str, original_claim: str):
+def lawyer_agent(jury_results: str, original_claim: str, model_type: str, output_file="lawyer_results.txt"):
     with open(jury_results, "r", encoding="utf-8") as file:
         document = json.load(file)
     #jury_results_str = json.dumps(jury_results, indent=4, ensure_ascii=False)
     prompt = generate_lawyer_prompt(document, original_claim)
     print("변호사가 문서를 검토하고 있습니다...")
-    print(prompt)
-    return prompt
+
+    if model_type == "deepseek-chat":
+        response = llm.call_deepseek(prompt, model="deepseek-chat")
+    elif model_type == "gpt-3.5-turbo":
+        response = llm.call_openai(prompt, model="gpt-3.5-turbo")
+    else:
+        raise ValueError("지원하지 않는 모델입니다.")
+    
+    content = response["choices"][0]["message"]["content"].strip()
+    print(content)
+
+    with open(output_file, "w", encoding="utf-8") as file:
+        file.write(content)
+    return content
+
+
+def generate_prosecutor_prompt(jury_results: str, original_claim: str):
+    return f"""
+    You are a prosecutor tasked with critically evaluating the document provided by the jury. 
+    Your role is to identify weaknesses in the arguments presented and construct a compelling case against the client’s position.
+
+    The client’s claim is: "{original_claim}"
+
+    1. Carefully review the document and identify:
+    - Specific evidence that weakens the client’s claim, including any gaps, inconsistencies, or contradictions in the client’s arguments.
+    - Strengths in the opposing arguments and evidence, highlighting how they counter the client’s position.
+    - Logical or factual inconsistencies in the evidence provided by the client.
+
+    2. Construct a response with the following structure:
+    - **Summary of the claim**: A concise summary of the client’s position.
+    - **Weaknesses in the evidence**: A detailed explanation of the weaknesses and gaps in the evidence supporting the client’s claim, citing specific sections of the document.
+    - **Counterarguments**: A rebuttal of the client’s supporting arguments using logical reasoning and highlighting stronger evidence from the opposing side.
+    - **Conclusion**: A persuasive closing statement summarizing why the client’s claim is invalid and should be rejected, incorporating the identified weaknesses and opposing strengths.
+
+    3. Follow these guidelines:
+    - Be logical, concise, and persuasive.
+    - Avoid relying on external information; base your analysis solely on the evidence provided in the document.
+    - Clearly explain how the evidence weakens the client’s claim, and reference specific sections or excerpts from the provided document.
+
+    Return your argument as a structured response ready to be presented in a legal context.
+
+    =============== Provided Document (Start) ===============
+    {jury_results}
+    =============== Provided Document (End) ===============
+
+    """
+
+
+def prosecutor_agent(jury_results: str, original_claim: str, model_type: str, output_file="prosecutor_results.txt"):
+    with open(jury_results, "r", encoding="utf-8") as file:
+        document = json.load(file)
+    prompt = generate_prosecutor_prompt(document, original_claim)
+    print("검사가 문서를 검토하고 있습니다...")
+
+    if model_type == "deepseek-chat":
+        response = llm.call_deepseek(prompt, model="deepseek-chat")
+    elif model_type == "gpt-3.5-turbo":
+        response = llm.call_openai(prompt, model="gpt-3.5-turbo")
+    else:
+        raise ValueError("지원하지 않는 모델입니다.")
+    
+    content = response["choices"][0]["message"]["content"].strip()
+    print(content)
+
+    with open(output_file, "w", encoding="utf-8") as file:
+        file.write(content)
+    return content
 
 
 
@@ -180,7 +245,14 @@ if __name__ == "__main__":
     # Lawyer Agent 작동: 배심원단의 답변을 검토하고 변호사의 의견을 생성한다.
     try:
         if os.path.exists("jury_results.json"):
-            lawyer_agent("jury_results.json", claim)
+            lawyer_agent("jury_results.json", claim, model_type="deepseek-chat")
+    except Exception as e:
+        print(f"배심원단의 답변(jury_results.json)이 생성되지 않았습니다. Error: {e}")
+
+    # Prosecutor Agent 작동: 배심원단의 답변을 검토하고 검사의 의견을 생성한다.
+    try:
+        if os.path.exists("jury_results.json"):
+            prosecutor_agent("jury_results.json", claim, model_type="deepseek-chat")
     except Exception as e:
         print(f"배심원단의 답변(jury_results.json)이 생성되지 않았습니다. Error: {e}")
 
