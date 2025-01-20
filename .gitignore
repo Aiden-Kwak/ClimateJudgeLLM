@@ -2,5 +2,5 @@ venv
 .env
 memo.txt
 *.bin
-*.json
+metadata.json
 rscFiles/
