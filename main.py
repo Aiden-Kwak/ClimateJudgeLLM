@@ -4,6 +4,7 @@ import json
 from openai import OpenAI
 from easy_rag import RagService
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 load_dotenv()
@@ -110,6 +111,17 @@ def qa_model(claim: str, model: str = "deepseek-chat"):
     
 ### Jury Agent
 ### Set easy-rag-llm.
+def process_question(rs, resource, question, original_claim):
+    jury_prompt = f"""
+    You are a juror tasked with preparing a logical and well-reasoned response to the derived sub-question "{question}" in order to evaluate the original question "{original_claim}".
+    Carefully review the provided materials and base your evaluation and response strictly on the evidence presented.
+    1) All responses and evaluations must be grounded solely in the provided materials.
+    2) Do not reference or rely on any information or evidence not included in the materials.
+    3) Your response will serve as a critical basis for determining the truthfulness of the original question "{original_claim}".
+    """
+    response, evidence = rs.generate_response(resource, question, evidence_num=5)
+    return question, response, evidence
+
 def jury_agent(questions: list, original_claim: str):
     print("생성된 세부 질문들이 배심원단에 의해 판단되는 중입니다...")
     rs = RagService(
@@ -120,21 +132,23 @@ def jury_agent(questions: list, original_claim: str):
         deepseek_base_url=deepseek_base_url,
     )
     print("배심원단이 문서에서 근거를 찾는 중입니다...")
-    resource = rs.rsc("./rscFiles", force_update=False, max_workers=15) # 전체 문서 임베딩
-    for question in questions: # 나중에 멀티스레드로 변경
-        jury_prompt = f"""
-        You are a juror tasked with preparing a logical and well-reasoned response to the derived sub-question "{question}" in order to evaluate the original question "{original_claim}".
-        Carefully review the provided materials and base your evaluation and response strictly on the evidence presented.
-        1) All responses and evaluations must be grounded solely in the provided materials.
-        2) Do not reference or rely on any information or evidence not included in the materials.
-        3) Your response will serve as a critical basis for determining the truthfulness of the original question "{original_claim}".
-        """
-        response, evidence = rs.generate_response(resource, question, evidence_num=5)
-        print(f"Question: {question}")
-        print(f"Response: {response}") 
-        print(f"Evidence: {evidence}")
-        print("\n")
-        print("=====================================================")
+    resource = rs.rsc("./rscFiles", force_update=False, max_workers=15)  # 전체 문서 임베딩
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(process_question, rs, resource, question, original_claim): question
+            for question in questions
+        }
+        for future in as_completed(futures):
+            question = futures[future]
+            try:
+                question, response, evidence = future.result()
+                print(f"Question: {question}")
+                print(f"Response: {response}")
+                print(f"Evidence: {evidence}")
+                print("\n=====================================================\n")
+            except Exception as e:
+                print(f"Error processing question '{question}': {e}")
 
 
 
