@@ -264,7 +264,7 @@ def generate_prosecutor_reply_brief_prompt(lawyer_results: str, output_file="./r
 
 def prosecutor_reply_brief(lawyer_results: str, model_type: str, output_file="./reply_brief/prosecutor_reply_brief.txt"):
     with open(lawyer_results, "r", encoding="utf-8") as file:
-        #document = json.load(file)
+        #document = json.load(file), json으로 작성할 필요 없어
         document = file.read().strip()
     prompt = generate_prosecutor_reply_brief_prompt(document)
     print("검사가 변호사의 의견을 검토하고 있습니다...")
@@ -339,6 +339,98 @@ def lawyer_reply_brief(prosecutor_results: str, original_claim: str, model_type:
 검사는 변호사의 논리를 반박하는게 중요하지만, 변호사는 검사의 논리를 반박하는 것 뿐 아니라 의뢰인의 의견을 강화하는게 중요함.
 """
 
+import json
+import os
+
+def create_judge_input(jury_path, lawyer_path, lawyer_reply_path, prosecutor_path, prosecutor_reply_path, output_path):
+    try:
+        with open(jury_path, "r", encoding="utf-8") as jury_file:
+            jury_results = json.load(jury_file)
+        
+        with open(lawyer_path, "r", encoding="utf-8") as lawyer_file:
+            lawyer_results = lawyer_file.read().strip()
+        
+        with open(lawyer_reply_path, "r", encoding="utf-8") as lawyer_reply_file:
+            lawyer_reply = lawyer_reply_file.read().strip()
+        
+        with open(prosecutor_path, "r", encoding="utf-8") as prosecutor_file:
+            prosecutor_results = prosecutor_file.read().strip()
+        
+        with open(prosecutor_reply_path, "r", encoding="utf-8") as prosecutor_reply_file:
+            prosecutor_reply = prosecutor_reply_file.read().strip()
+        
+        judge_input = {
+            "jury_results": jury_results,
+            "lawyer_results": lawyer_results,
+            "lawyer_reply_brief": lawyer_reply,
+            "prosecutor_results": prosecutor_results,
+            "prosecutor_reply_brief": prosecutor_reply
+        }
+
+        with open(output_path, "w", encoding="utf-8") as output_file:
+            json.dump(judge_input, output_file, indent=4, ensure_ascii=False)
+        
+        print(f"판사 에이전트 입력 데이터가 생성되었습니다: {output_path}")
+    except Exception as e:
+        print(f"데이터 통합 중 오류 발생: {e}")
+
+
+####### 판사 에이전트 #######
+def generate_judge_prompt(judge_input: str):
+    return f"""
+    You are a judge tasked with reviewing the arguments and evidence provided by both the defense and the prosecution to reach a fair and logical verdict. 
+    Your role is to:
+    1. Analyze the jury's evaluation of the claim.
+    2. Critically assess the arguments and rebuttals presented by both the defense and the prosecution.
+    3. Weigh the strengths and weaknesses of each side's arguments based on the evidence provided.
+
+    Your verdict must:
+    1. Summarize the key points from both sides.
+    2. Identify which side has presented a stronger case, supported by specific reasoning and evidence.
+    3. Conclude with a logical and fair judgment, stating whether the client’s claim is valid or not.
+
+    You are only allowed to base your analysis on the following provided document. Avoid using external information.
+
+    =============== Provided Document (Start) ===============
+    {judge_input}
+    =============== Provided Document (End) ===============
+
+    Your response must be structured as follows:
+    1. **Summary of the Case**: Provide an objective summary of the client’s claim and the arguments presented by both sides.
+    2. **Analysis**:
+    - Strengths and weaknesses of the defense’s arguments.
+    - Strengths and weaknesses of the prosecution’s arguments.
+    3. **Verdict**: State your final judgment and provide a concise explanation of your reasoning.
+    """
+
+def judge_agent(judge_input_path, model_type="deepseek-chat"):
+    try:
+        with open(judge_input_path, "r", encoding="utf-8") as file:
+            judge_input = json.load(file)
+        judge_prompt = json.dumps(judge_input, indent=4, ensure_ascii=False)
+        prompt = generate_judge_prompt(judge_input)
+
+        print("판사 에이전트가 판결을 생성중입니다...")
+        if model_type == "deepseek-chat":
+            response = llm.call_deepseek(prompt, model="deepseek-chat")
+        elif model_type == "gpt-3.5-turbo":
+            response = llm.call_openai(prompt, model="gpt-3.5-turbo")
+        else:
+            raise ValueError("지원하지 않는 모델입니다.")
+
+        content = response["choices"][0]["message"]["content"].strip()
+        print("판결 생성 완료:")
+        print(content)
+
+        # 결과 저장
+        with open("judge_verdict.txt", "w", encoding="utf-8") as file:
+            file.write(content)
+
+    except Exception as e:
+        print(f"판사 에이전트 실행 중 오류 발생: {e}")
+
+
+
 
 
 if __name__ == "__main__":
@@ -399,6 +491,22 @@ if __name__ == "__main__":
             prosecutor_reply_brief(LAWYER_RESULT_PATH, model_type="deepseek-chat")
     except Exception as e:
         print(f"변호사의 의견(lawyer_results.txt)이 생성되지 않았습니다. Error: {e}")
+
+    # 판사한테 검토시켜야할 문서가 5개. 이거 전부 단일 에이전트의 논리가 감당할 수 있는지 확인해야돼. 
+    # 1차로 5개, 2차로 jury 제외한 4개로 테스트해보자
+    # 전체 내용을 json으로 구조화해서 입력하자.
+    create_judge_input(
+        jury_path="jury_results.json",
+        lawyer_path="./results/lawyer_results.txt",
+        lawyer_reply_path="./reply_brief/lawyer_reply_brief.txt",
+        prosecutor_path="./results/prosecutor_results.txt",
+        prosecutor_reply_path="./reply_brief/prosecutor_reply_brief.txt",
+        output_path="judge_input.json"
+    )
+
+    # 판사 에이전트 작동
+    judge_agent("judge_input.json", model_type="deepseek-chat")
+
 
 
 
