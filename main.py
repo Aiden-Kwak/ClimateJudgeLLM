@@ -127,30 +127,30 @@ def generate_lawyer_prompt(jury_results: str, original_claim: str):
     The client’s claim is: "{original_claim}"
 
     1. Carefully review the document and identify:
-    - Evidence that supports the client’s claim. 
-    - Weaknesses in the opposing arguments.
-    - Logical or factual inconsistencies in the evidence presented by the opposition.
+    - Evidence that supports the client’s claim. Be sure to include direct references to the original document, specifying the page number and any relevant quotes.
+    - Weaknesses in the opposing arguments, providing specific references to the document where applicable.
+    - Logical or factual inconsistencies in the evidence presented by the opposition, citing the document and page numbers for clarity.
 
     2. Construct a response with the following structure:
     - **Summary of the claim**: A concise summary of the client’s position.
-    - **Supporting evidence**: A detailed explanation of the evidence supporting the client’s claim, highlighting its strengths.
-    - **Counterarguments**: A rebuttal of any potential opposing arguments using logical reasoning.
+    - **Supporting evidence**: A detailed explanation of the evidence supporting the client’s claim, highlighting its strengths. Include direct quotes and page numbers from the provided document and the document's name.
+    - **Counterarguments**: A rebuttal of any potential opposing arguments using logical reasoning. Reference specific parts of the document and page numbers to strengthen your rebuttal.
     - **Conclusion**: A persuasive closing statement summarizing why the client’s claim is valid and should be upheld.
 
     3. Follow these guidelines:
     - Be logical, concise, and persuasive.
     - Avoid relying on external information; base your analysis solely on the evidence provided in the document.
-    - Clearly explain how the evidence supports the client’s claim.
+    - Clearly explain how the evidence supports the client’s claim, and always cite the document name and page numbers to provide precise references like (document name / page).
 
     Return your argument as a structured response ready to be presented in a legal context.
 
     =============== Provided Document (Start) ===============
     {jury_results}
-    =============== Provided Document (End) ===============
+    =============== Provided Document (End) =================
     """
 
 
-def lawyer_agent(jury_results: str, original_claim: str, model_type: str, output_file="lawyer_results.txt"):
+def lawyer_agent(jury_results: str, original_claim: str, model_type: str, output_file="./results/lawyer_results.txt"):
     with open(jury_results, "r", encoding="utf-8") as file:
         document = json.load(file)
     #jury_results_str = json.dumps(jury_results, indent=4, ensure_ascii=False)
@@ -165,12 +165,15 @@ def lawyer_agent(jury_results: str, original_claim: str, model_type: str, output
         raise ValueError("지원하지 않는 모델입니다.")
     
     content = response["choices"][0]["message"]["content"].strip()
-    print(content)
+    #print(content)
 
     with open(output_file, "w", encoding="utf-8") as file:
         file.write(content)
     return content
 
+
+#################################################################
+#### Prosecutor Agent
 
 def generate_prosecutor_prompt(jury_results: str, original_claim: str):
     return f"""
@@ -180,31 +183,29 @@ def generate_prosecutor_prompt(jury_results: str, original_claim: str):
     The client’s claim is: "{original_claim}"
 
     1. Carefully review the document and identify:
-    - Specific evidence that weakens the client’s claim, including any gaps, inconsistencies, or contradictions in the client’s arguments.
-    - Strengths in the opposing arguments and evidence, highlighting how they counter the client’s position.
-    - Logical or factual inconsistencies in the evidence provided by the client.
+    - Specific evidence that weakens the client’s claim, including any gaps, inconsistencies, or contradictions in the client’s arguments. Provide direct references to the original document, including page numbers and relevant quotes.
+    - Strengths in the opposing arguments and evidence, highlighting how they counter the client’s position. Reference the document and page numbers where applicable.
+    - Logical or factual inconsistencies in the evidence provided by the client, citing specific excerpts and page numbers for clarity.
 
     2. Construct a response with the following structure:
     - **Summary of the claim**: A concise summary of the client’s position.
-    - **Weaknesses in the evidence**: A detailed explanation of the weaknesses and gaps in the evidence supporting the client’s claim, citing specific sections of the document.
-    - **Counterarguments**: A rebuttal of the client’s supporting arguments using logical reasoning and highlighting stronger evidence from the opposing side.
-    - **Conclusion**: A persuasive closing statement summarizing why the client’s claim is invalid and should be rejected, incorporating the identified weaknesses and opposing strengths.
+    - **Weaknesses in the evidence**: A detailed explanation of the weaknesses and gaps in the evidence supporting the client’s claim, citing specific sections, quotes, and page numbers from the document.
+    - **Counterarguments**: A rebuttal of the client’s supporting arguments using logical reasoning and highlighting stronger evidence from the opposing side. Include specific references to the document and page numbers to substantiate your argument.
+    - **Conclusion**: A persuasive closing statement summarizing why the client’s claim is invalid and should be rejected, incorporating the identified weaknesses and opposing strengths. Reference key evidence and page numbers to strengthen your conclusion.
 
     3. Follow these guidelines:
     - Be logical, concise, and persuasive.
     - Avoid relying on external information; base your analysis solely on the evidence provided in the document.
-    - Clearly explain how the evidence weakens the client’s claim, and reference specific sections or excerpts from the provided document.
+    - Clearly explain how the evidence weakens the client’s claim, and always cite the document name and page numbers to provide precise references like (document name / page).
 
     Return your argument as a structured response ready to be presented in a legal context.
 
     =============== Provided Document (Start) ===============
     {jury_results}
-    =============== Provided Document (End) ===============
-
+    =============== Provided Document (End) =================
     """
 
-
-def prosecutor_agent(jury_results: str, original_claim: str, model_type: str, output_file="prosecutor_results.txt"):
+def prosecutor_agent(jury_results: str, original_claim: str, model_type: str, output_file="./results/prosecutor_results.txt"):
     with open(jury_results, "r", encoding="utf-8") as file:
         document = json.load(file)
     prompt = generate_prosecutor_prompt(document, original_claim)
@@ -218,16 +219,136 @@ def prosecutor_agent(jury_results: str, original_claim: str, model_type: str, ou
         raise ValueError("지원하지 않는 모델입니다.")
     
     content = response["choices"][0]["message"]["content"].strip()
-    print(content)
+    #print(content)
 
     with open(output_file, "w", encoding="utf-8") as file:
         file.write(content)
     return content
 
 
+def generate_prosecutor_reply_brief_prompt(lawyer_results: str, output_file="./reply_brief/prosecutor_reply_brief.txt"):
+    reply_brief = f"""
+    You are a prosecutor tasked with constructing a reply brief that critically evaluates the defense’s arguments and provides a compelling case to refute them.
+
+    The defense’s argument is summarized in the provided document. Your role is to:
+    1. Identify critical weaknesses in the defense’s argument, focusing on:
+    - Logical flaws or inconsistencies in their reasoning.
+    - Weak or unsupported evidence cited by the defense.
+    - Misrepresentation or misinterpretation of key evidence or facts.
+    2. Construct a compelling rebuttal to the defense’s argument, emphasizing:
+    - Strong evidence that contradicts or undermines the defense’s position.
+    - Logical reasoning that invalidates the defense’s conclusions.
+    - The strengths of the prosecution’s original case.
+    3. Clearly explain how the evidence and reasoning refute the defense’s claims, referencing specific sections, excerpts, and page numbers from the provided document.
+
+    ### **Structure of the Reply Brief**
+    1. **Summary of the Defense’s Argument**:
+    - Provide a concise and objective summary of the key points in the defense’s argument.
+    2. **Critical Weaknesses**:
+    - Identify and explain the weaknesses, flaws, or gaps in the defense’s argument or evidence. Reference the original document with page numbers.
+    3. **Prosecutor’s Counterarguments**:
+    - Present a rebuttal to each key point in the defense’s argument. Use strong evidence from the provided document and logical reasoning to strengthen the prosecution’s case. Include direct citations (e.g., “Document A, Page 12”).
+    4. **Conclusion**:
+    - Summarize why the defense’s argument is invalid and reiterate the strength of the prosecution’s case.
+
+    ### **Guidelines**:
+    - Be logical, concise, and persuasive.
+    - Avoid relying on external information; base your analysis solely on the evidence provided in the document.
+    - Support all claims with specific references to the provided document, including page numbers and relevant excerpts.
+
+    =============== Provided Document (Start) ===============
+    {lawyer_results}
+    =============== Provided Document (End) ===============
+    """
+    return reply_brief
+
+def prosecutor_reply_brief(lawyer_results: str, model_type: str, output_file="./reply_brief/prosecutor_reply_brief.txt"):
+    with open(lawyer_results, "r", encoding="utf-8") as file:
+        #document = json.load(file)
+        document = file.read().strip()
+    prompt = generate_prosecutor_reply_brief_prompt(document)
+    print("검사가 변호사의 의견을 검토하고 있습니다...")
+
+
+    if model_type == "deepseek-chat":
+        response = llm.call_deepseek(prompt, model="deepseek-chat")
+    elif model_type == "gpt-3.5-turbo":
+        response = llm.call_openai(prompt, model="gpt-3.5-turbo")
+    else:
+        raise ValueError("지원하지 않는 모델입니다.")
+    
+    content = response["choices"][0]["message"]["content"].strip()
+
+    with open(output_file, "w", encoding="utf-8") as file:
+        file.write(content)
+    return content
+
+def generate_lawyer_reply_brief_prompt(prosecutor_results: str, original_claim: str, output_file="./reply_brief/lawyer_reply_brief.txt"):
+    reply_brief = f"""
+    You are a skilled defense attorney tasked with constructing a reply brief to refute the prosecutor’s arguments and strengthen the client’s position. 
+    Your role is to critically evaluate the prosecutor’s claims and evidence, identify weaknesses, and construct a compelling rebuttal in support of the client’s position.
+
+    The client’s claim is: "{original_claim}"
+
+    1. Carefully review the prosecutor’s arguments provided in the document and perform the following tasks:
+    - Identify logical flaws, inconsistencies, or gaps in the prosecutor’s arguments and evidence.
+    - Highlight the strengths of the client’s position, including evidence that contradicts the prosecutor’s claims.
+    - Emphasize any misinterpretations, overgeneralizations, or unsupported assumptions made by the prosecutor.
+
+    2. Construct a reply brief with the following structure:
+    - **Summary of the Prosecutor’s Arguments**: Provide a concise and objective summary of the prosecutor’s key points.
+    - **Weaknesses in the Prosecutor’s Arguments**: Identify and explain the weaknesses, flaws, or gaps in the prosecutor’s claims and evidence. Reference specific sections, excerpts, and page numbers from the provided document.
+    - **Defense’s Rebuttal**: Present a detailed rebuttal to each key point made by the prosecutor, using strong evidence and logical reasoning to support the client’s claim. Include specific references to the document, citing page numbers and quotes where applicable.
+    - **Strengthening the Client’s Position**: Reiterate the strongest evidence and arguments supporting the client’s claim, demonstrating why it remains valid despite the prosecutor’s criticisms.
+    - **Conclusion**: Provide a persuasive closing statement summarizing why the prosecutor’s arguments are insufficient and why the client’s claim should be upheld.
+
+    3. Follow these guidelines:
+    - Be logical, concise, and persuasive.
+    - Avoid relying on external information; base your arguments solely on the evidence provided in the document.
+    - Clearly explain how the evidence supports the client’s claim and weakens the prosecutor’s arguments.
+    - Include direct references to the provided document, specifying page numbers and relevant quotes to substantiate your points.
+
+    =============== Provided Document (Start) ===============
+    {prosecutor_results}
+    =============== Provided Document (End) ===============
+    """
+    return reply_brief
+
+def lawyer_reply_brief(prosecutor_results: str, original_claim: str, model_type: str, output_file="./reply_brief/lawyer_reply_brief.txt"):
+    with open(prosecutor_results, "r", encoding="utf-8") as file:
+        #document = json.load(file)
+        document = file.read().strip() 
+    prompt = generate_lawyer_reply_brief_prompt(document, original_claim)
+    print("변호사가 검사의 의견을 검토하고 있습니다...")
+
+    if model_type == "deepseek-chat":
+        response = llm.call_deepseek(prompt, model="deepseek-chat")
+    elif model_type == "gpt-3.5-turbo":
+        response = llm.call_openai(prompt, model="gpt-3.5-turbo")
+    else:
+        raise ValueError("지원하지 않는 모델입니다.")
+    
+    content = response["choices"][0]["message"]["content"].strip()
+
+    with open(output_file, "w", encoding="utf-8") as file:
+        file.write(content)
+    return content
+
+### MEMO ###
+"""
+검사는 변호사의 논리를 반박하는게 중요하지만, 변호사는 검사의 논리를 반박하는 것 뿐 아니라 의뢰인의 의견을 강화하는게 중요함.
+"""
+
 
 
 if __name__ == "__main__":
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    RESULTS_DIR = os.path.join(BASE_DIR, "results")
+    REPLY_BRIEF_DIR = os.path.join(BASE_DIR, "reply_brief")
+
+    print("경로확인: ", RESULTS_DIR)
+
     llm = LLMModel(
         deepseek_api_key=deepseek_api_key,
         openai_api_key=openai_api_key,
@@ -240,7 +361,11 @@ if __name__ == "__main__":
 
     # Jury Agent 작동: 세부 질문에 대한 답변을 생성한다. 이때 easy-rag-llm v1.1.0을 사용. 
     # 이후 배심원단의 답변을 종합해 변호사와 검사에게 전달할 문서를 생성한다.
-    jury_agent(questions, claim)
+    if os.path.exists("jury_results.json"):
+        print("기존 생성된 배심원단의 답변(jury_results.json)을 사용합니다.")
+        pass
+    else:
+        jury_agent(questions, claim)
 
     # Lawyer Agent 작동: 배심원단의 답변을 검토하고 변호사의 의견을 생성한다.
     try:
@@ -258,9 +383,22 @@ if __name__ == "__main__":
 
     # 이제 상호작용시켜야돼.
     # Lawyer Reply Brief 작성
-    
+    try:
+        if os.path.exists("./results/prosecutor_results.txt"):
+            PROSECUTOR_RESULT_PATH = os.path.join(RESULTS_DIR, "prosecutor_results.txt")
+            print("변호사의 의견을 검사에게 전달하고 있습니다...")
+            lawyer_reply_brief(PROSECUTOR_RESULT_PATH, claim, model_type="deepseek-chat")
+    except Exception as e:
+        print(f"검사의 의견(prosecutor_results.txt)이 생성되지 않았습니다. Error: {e}")
 
     # Prosecutor Reply Brief 작성
+    try:
+        if os.path.exists("./results/lawyer_results.txt"):
+            LAWYER_RESULT_PATH = os.path.join(RESULTS_DIR, "lawyer_results.txt")
+            print("검사의 의견을 변호사에게 전달하고 있습니다...")
+            prosecutor_reply_brief(LAWYER_RESULT_PATH, model_type="deepseek-chat")
+    except Exception as e:
+        print(f"변호사의 의견(lawyer_results.txt)이 생성되지 않았습니다. Error: {e}")
 
 
 
